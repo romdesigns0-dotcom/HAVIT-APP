@@ -2,6 +2,7 @@ version: 1
 bundleID: com.example.Havit
 product: Havit
 infoPath: App-Info.plist
+iconPath: Assets/AppIcon.png
 extensions:
   - product: HavitWidget
     infoPath: HavitWidget-Info.plist

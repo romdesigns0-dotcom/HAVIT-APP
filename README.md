@@ -21,6 +21,10 @@ App nativa para iPhone, complementaria al dispositivo HAVIT con ESP32. Permite c
 - `Scripts`: compilación con xtool y ajuste del punto de entrada de WidgetKit.
 - `FIREBASE-AUTH.md`: configuración y limitaciones de autenticación.
 
+## Icono de la app
+
+El icono se integra desde `Assets/AppIcon.png`, una exportación opaca a 1024 × 1024 de las capas originales de Figma. Las capas SVG y la documentación para Liquid Glass están en `Design/AppIcon`. La variante con vidrio de Figma sirve para revisar el diseño; el icono instalado es estático. El acabado dinámico nativo de Apple requiere compilar un paquete `.icon` con herramientas compatibles.
+
 ## Requisitos
 
 - Swift 6.0 o posterior y SDK de iOS compatible con las dependencias resueltas.

@@ -1,0 +1,26 @@
+.DS_Store
+/.build
+/Packages
+xcuserdata/
+DerivedData/
+.swiftpm/configuration/registries.json
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+.netrc
+
+/xtool
+
+# Local build output and device diagnostics
+/.bsp/
+/.local-toolchain/
+/diagnostics/
+*.ipa
+*.mobileprovision
+*.p12
+*.p8
+*Zone.Identifier
+
+# Firebase configuration stays local; use Config/GoogleService-Info.example.plist.
+/Sources/Havit/Resources/GoogleService-Info.plist
+.env
+.env.*
+!.env.example

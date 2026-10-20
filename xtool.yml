@@ -1,0 +1,7 @@
+version: 1
+bundleID: com.example.Havit
+product: Havit
+infoPath: App-Info.plist
+extensions:
+  - product: HavitWidget
+    infoPath: HavitWidget-Info.plist

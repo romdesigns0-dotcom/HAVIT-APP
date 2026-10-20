@@ -52,7 +52,6 @@ struct WelcomeView: View {
 
                     Spacer().frame(height: 39)
                     LegalCopy()
-                    Spacer().frame(height: 12)
                 }
                 .padding(.horizontal, 19)
                 .frame(minHeight: geometry.size.height)

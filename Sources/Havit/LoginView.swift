@@ -71,7 +71,6 @@ struct LoginView: View {
 
                     Spacer().frame(height: 37)
                     LegalCopy()
-                    Spacer().frame(height: 12)
                 }
                 .padding(.horizontal, 19)
                 .frame(minHeight: geometry.size.height)

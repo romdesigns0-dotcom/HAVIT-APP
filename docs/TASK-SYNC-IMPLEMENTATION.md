@@ -1,6 +1,6 @@
 # HAVIT: actividades compartidas v1
 
-Revisión 22/10/2026. Este documento sustituye las propuestas de tareas de DEVICE-SYNC-CONTRACT.md. El estado de despliegue y la evidencia física se registran en CONTEXTO_INTEGRACION_HAVIT.md de la raíz compartida.
+Revisión 22/10/2026. Este documento sustituye las propuestas de tareas anteriores. La API, autenticación y procedimientos para el operador se describen en [backend/README.md](../backend/README.md).
 
 ## Campos y pantallas
 

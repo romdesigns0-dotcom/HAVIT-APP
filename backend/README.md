@@ -6,9 +6,9 @@ Desplegada en Firebase `havit-c8c1d`, región `us-central1`, Node.js 22 / Cloud 
 
 ## Puente de actividades por BLE — 22/10/2026
 
-`POST /v1/devices/relay` está desplegado en el mismo codebase. Exige Firebase ID token del propietario y un mensaje AES-256-GCM generado por la unidad. Comprueba deviceId, bindingId y credencial revocable; aplica eventos con la misma idempotencia de HTTPS y devuelve snapshot/ACK cifrados. Contrato y límites en `../../TASK-BLE-RELAY.md`. La clave se deriva del hash privado de la credencial; no se entrega al teléfono ni se imprime. El hash también debe tratarse como secreto.
+`POST /v1/devices/relay` está desplegado en el mismo codebase. Exige Firebase ID token del propietario y un mensaje AES-256-GCM generado por la unidad. Comprueba deviceId, bindingId y credencial revocable; aplica eventos con la misma idempotencia de HTTPS y devuelve snapshot/ACK cifrados. [Contrato y límites](../docs/TASK-BLE-RELAY.md). La clave se deriva del hash privado de la credencial; no se entrega al teléfono ni se imprime. El hash también debe tratarse como secreto.
 
-29/29 pruebas Firestore Emulator pasaron, incluidas AEAD, cuentas diferentes, revocación y desvinculación offline. iPhone físico recibió respuestas 200; ESP32 sin Wi-Fi recibió el snapshot, envió una actividad temporal y recibió su completado y borrado. Se conserva la tarea real del usuario. La aceptación física de transferencia entre cuentas A/B es un caso distinto y sigue pendiente. Los apartados históricos siguientes conservan el contexto de entregas anteriores; el estado reciente está en `CONTEXTO_INTEGRACION_HAVIT.md` de la raíz compartida.
+29/29 pruebas Firestore Emulator pasaron, incluidas AEAD, cuentas diferentes, revocación y desvinculación offline. iPhone físico recibió respuestas 200; ESP32 sin Wi-Fi recibió el snapshot, envió una actividad temporal y recibió su completado y borrado. Se conserva la tarea real del usuario. La aceptación física de transferencia entre cuentas A/B es un caso distinto y sigue pendiente. Los apartados históricos siguientes conservan el contexto de entregas anteriores; el estado reciente de integración está en la guía de arquitectura y en el README del firmware.
 
 ## Estado
 
@@ -176,7 +176,7 @@ Cache-Control: no-store
 
 Errores reales devuelven `{"error":{"code":"..."}}`; `CLAIM_NOT_READY` incluye `retryAfterSeconds: 5` y `Retry-After`. Un token ausente/inválido/revocado da `401`; prueba incorrecta `403 CLAIM_PROOF_INVALID`; otra cuenta `409 DEVICE_ALREADY_LINKED`; sesión anterior a una nueva ventana `409 CLAIM_SUPERSEDED`; caducidad `410 CLAIM_EXPIRED`; límites `429 RATE_LIMITED`. Publicación limitada a 60 llamadas/minuto por dispositivo (incluye consultas de estado); reclamación a 10/minuto por usuario. Consultar estado con backoff y respetar `Retry-After`.
 
-Los cuerpos rechazan campos extra, requieren UUID de sesión en minúsculas, hash SHA-256 hexadecimal minúsculo y secreto base64url canónico sin relleno de exactamente 32 bytes. Fórmula de hash y protocolo BLE `prepare_claim`/`ack_claim`: `XTOOL/DEVICE-API-CONTRACT.md`, sección 4.
+Los cuerpos rechazan campos extra, requieren UUID de sesión en minúsculas, hash SHA-256 hexadecimal minúsculo y secreto base64url canónico sin relleno de exactamente 32 bytes. Fórmula de hash y protocolo BLE `prepare_claim`/`ack_claim`: [guía de provisión BLE/Wi-Fi del firmware](https://github.com/romdesigns0-dotcom/HAVIT-DEVICE/blob/havit-v2/docs/BLE_WIFI_IOS.md).
 
 ## Despliegue y pruebas de desarrollo
 
@@ -200,4 +200,4 @@ node test/live-smoke.cjs https://us-central1-havit-c8c1d.cloudfunctions.net/havi
 ```
 # Actividades compartidas (22/10/2026)
 
-La API v1 incluye ahora tareas por cuenta y snapshot/eventos para ESP32. Contrato vigente, campos, límites, migración y pantallas: [TASK-SYNC-IMPLEMENTATION.md](../../TASK-SYNC-IMPLEMENTATION.md). El contexto de la raíz compartida registra por separado compilación, despliegue y aceptación física. Las secciones históricas inferiores pueden describir etapas anteriores de vinculación.
+La API v1 incluye tareas por cuenta y snapshot/eventos para ESP32. Contrato vigente, campos, límites, migración y pantallas: [TASK-SYNC-IMPLEMENTATION.md](../docs/TASK-SYNC-IMPLEMENTATION.md). Las secciones históricas inferiores pueden describir etapas anteriores de vinculación.

@@ -12,6 +12,7 @@ DerivedData/
 # Local build output and device diagnostics
 /.bsp/
 /.local-toolchain/
+/ble-*.log
 /diagnostics/
 *.ipa
 *.mobileprovision
@@ -24,3 +25,5 @@ DerivedData/
 .env
 .env.*
 !.env.example
+__pycache__/
+*.py[cod]

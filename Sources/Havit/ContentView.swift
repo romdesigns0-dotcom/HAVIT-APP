@@ -2,17 +2,28 @@ import SwiftUI
 import UIKit
 import FirebaseAuth
 
-private enum HavitEntryRoute: Hashable { case signIn, connectDevice }
+private enum HavitEntryRoute: Hashable { case signIn, connectDevice, deviceFound, wifiSetup, wifiConnecting }
 
 struct ContentView: View {
     @StateObject private var authSession = HavitAuthSession()
     @AppStorage("havit.onboardingCompleted") private var onboardingCompleted = false
     @State private var onboardingPath = NavigationPath()
     @State private var showingWelcome = false
+    @State private var connectAfterSignIn = false
+    @State private var checkingAccountDevices = false
+    @State private var checkedAccountUID: String?
     @State private var showingAccount = false
+    @State private var showingUnlinkConfirmation = false
+    @State private var showingResetConfirmation = false
     @State private var emailLinkConfirmation = ""
+    @State private var selectedDeviceID: UUID?
+    @State private var selectedDeviceName = ""
+    @State private var waitingForBluetoothConnection = false
     @StateObject private var notifications = NotificationDemo()
     @StateObject private var bluetooth = BluetoothController()
+    @StateObject private var provisioning = WiFiProvisioningController()
+    @StateObject private var deviceLink = HavitDeviceLinkCoordinator()
+    @StateObject private var taskBridge = HavitTaskBLEBridge()
     @StateObject private var liveActivity = LiveActivityDemo()
     @AppStorage("study.useFocusShortcuts") private var useFocus = false
     @State private var minutes = 25
@@ -29,14 +40,58 @@ struct ContentView: View {
             } else {
                 NavigationStack(path: $onboardingPath) {
                     WelcomeView(
-                        onStart: { onboardingPath.append(HavitEntryRoute.connectDevice) },
-                        onLogin: { onboardingPath.append(HavitEntryRoute.signIn) }
+                        onStart: { beginAccountFirstSetup() },
+                        onLogin: { beginAccountFirstSetup() }
                     )
                     .navigationDestination(for: HavitEntryRoute.self) { route in
                         switch route {
-                        case .signIn: LoginView(session: authSession, onContinueWithoutAccount: finishOnboarding)
+                        case .signIn: LoginView(session: authSession, onContinueWithoutAccount: continueWithoutAccount)
                         case .connectDevice:
-                            PairDeviceView(bluetooth: bluetooth) { onboardingPath.append(HavitEntryRoute.signIn) }
+                            PairDeviceView(bluetooth: bluetooth, onSelectDevice: { device in
+                                selectedDeviceID = device.id
+                                selectedDeviceName = device.name
+                                onboardingPath.append(HavitEntryRoute.deviceFound)
+                            }, onContinue: {
+                                onboardingPath.append(HavitEntryRoute.signIn)
+                            })
+                        case .deviceFound:
+                            FoundDeviceView(
+                                deviceName: selectedDeviceName,
+                                isConnecting: provisioning.isConnecting,
+                                errorMessage: provisioning.errorMessage,
+                                onConnect: { code in
+                                    guard let selectedDeviceID else { return }
+                                    bluetooth.stopScan()
+                                    waitingForBluetoothConnection = true
+                                    provisioning.connect(name: selectedDeviceName, selectedPeripheralID: selectedDeviceID, code: code)
+                                },
+                                onUseAnother: {
+                                    provisioning.cancel()
+                                    waitingForBluetoothConnection = false
+                                    selectedDeviceID = nil
+                                    selectedDeviceName = ""
+                                    if onboardingPath.count > 0 { onboardingPath.removeLast() }
+                                }
+                            )
+                        case .wifiSetup:
+                            WiFiSetupView(
+                                provisioning: provisioning,
+                                onStartConnection: { ssid, password in
+                                    provisioning.provision(ssid: ssid, password: password)
+                                    onboardingPath.append(HavitEntryRoute.wifiConnecting)
+                                },
+                                onReconnect: { returnToDeviceConnection() },
+                                onContinueWithoutWiFi: {
+                                    provisioning.cancel()
+                                    onboardingPath.append(HavitEntryRoute.signIn)
+                                }
+                            )
+                        case .wifiConnecting:
+                            WiFiConnectingView(
+                                provisioning: provisioning,
+                                onRetry: { returnToDeviceConnection() },
+                                onContinue: { continueAfterWiFiSetup() }
+                            )
                         }
                     }
                 }
@@ -62,79 +117,213 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .onChange(of: authSession.isAuthenticated) { _, authenticated in
-            if authenticated { finishOnboarding(); showingAccount = false }
+            guard authenticated else {
+                checkedAccountUID = nil
+                deviceLink.refreshStoredState()
+                return
+            }
+            Task { await routeAuthenticatedAccount() }
+        }
+        .onChange(of: provisioning.claimProofSessionID) { _, sessionID in
+            guard sessionID != nil else { return }
+            deviceLink.refreshAfterBLEProofSaved()
+        }
+        .task {
+            deviceLink.refreshStoredState()
+            if authSession.isAuthenticated { await routeAuthenticatedAccount() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            deviceLink.refreshStoredState()
+            if authSession.isAuthenticated { Task { await routeAuthenticatedAccount() } }
+        }
+        .onChange(of: provisioning.sessionReady) { _, ready in
+            guard ready, waitingForBluetoothConnection else { return }
+            waitingForBluetoothConnection = false
+            onboardingPath.append(HavitEntryRoute.wifiSetup)
         }
     }
 
     private var dashboard: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    accountCard
-                    studyCard
-                    notificationsCard
-                    bluetoothCard
-                }
-                .padding()
-            }
-            .navigationTitle("HAVIT")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Cuenta", systemImage: "person.crop.circle") { showingAccount = true }
-                }
-            }
+        HavitHomeView(
+            onAccount: { showingAccount = true },
+            onRestart: restartOnboarding,
+            taskBridge: taskBridge,
+            onConnectDevice: connectDeviceFromHome,
+            deviceStatus: deviceLink.homeStatus(for: Auth.auth().currentUser?.uid),
+            accountUID: Auth.auth().currentUser?.uid,
+            linkedReceipt: deviceLink.linkedReceipts.first(where: { $0.ownerUID == Auth.auth().currentUser?.uid })
+        )
             .sheet(isPresented: $showingAccount) {
                 NavigationStack {
                     if authSession.isAuthenticated {
                         VStack(spacing: 24) {
-                            Label("Sesión iniciada", systemImage: "person.crop.circle.badge.checkmark")
-                                .font(.title2.bold())
-                            Text("Tu cuenta está conectada a HAVIT.")
-                            Button("Cerrar sesión") {
-                                if authSession.signOut() {
-                                    onboardingCompleted = false
-                                    showingAccount = false
-                                    returnToWelcome()
+                            Label("Sesión iniciada", systemImage: "person.crop.circle.badge.checkmark").font(.title2.bold())
+                            Text(deviceLink.linkStatus(for: Auth.auth().currentUser?.uid))
+                            if let details = deviceLink.linkReceiptDetails(for: Auth.auth().currentUser?.uid) {
+                                Text(details)
+                                    .font(.system(.footnote, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(12)
+                                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+                                Button(role: .destructive) {
+                                    showingUnlinkConfirmation = true
+                                } label: {
+                                    if deviceLink.isUnlinking {
+                                        ProgressView("Desvinculando…")
+                                    } else {
+                                        Text("Desvincular HAVIT")
+                                    }
+                                }
+                                .disabled(deviceLink.isUnlinking)
+                            }
+                            if let message = deviceLink.unlinkMessage {
+                                Text(message).font(.footnote).foregroundStyle(.secondary)
+                            }
+                            if deviceLink.hasPendingProof {
+                                Button("Reintentar vinculación") { deviceLink.resumePendingClaim() }.buttonStyle(.borderedProminent)
+                            }
+                            if Auth.auth().currentUser != nil {
+                                Button(role: .destructive) {
+                                    showingResetConfirmation = true
+                                } label: {
+                                    if deviceLink.isUnlinking {
+                                        ProgressView("Restableciendo…")
+                                    } else {
+                                        Label("Restablecer datos para pruebas", systemImage: "trash")
+                                    }
+                                }
+                                .disabled(deviceLink.isUnlinking)
+                                .confirmationDialog("¿Restablecer esta cuenta para pruebas?", isPresented: $showingResetConfirmation, titleVisibility: .visible) {
+                                    Button("Restablecer HAVIT y borrar datos", role: .destructive) {
+                                        guard let uid = Auth.auth().currentUser?.uid else { return }
+                                        Task { await deviceLink.resetAccountForTesting(for: uid) }
+                                    }
+                                    Button("Cancelar", role: .cancel) {}
+                                } message: {
+                                    Text("HAVIT debe estar encendido. Si tiene Wi‑Fi, recibirá el reinicio directamente; si no, la app lo enviará por Bluetooth. La placa borrará la red guardada, el vínculo y su caché; Firebase purgará las actividades y operaciones de esta cuenta. Se conserva la identidad de fábrica para configurarlo otra vez.")
                                 }
                             }
-                            .buttonStyle(.bordered)
+                            Button("Cerrar sesión") {
+                                if authSession.signOut() { onboardingCompleted = false; showingAccount = false; returnToWelcome() }
+                            }.buttonStyle(.bordered)
                             if let message = authSession.statusMessage { Text(message).font(.footnote) }
                         }
                         .padding()
+                        .confirmationDialog("¿Desvincular HAVIT de esta cuenta?", isPresented: $showingUnlinkConfirmation, titleVisibility: .visible) {
+                            Button("Desvincular", role: .destructive) {
+                                guard let uid = Auth.auth().currentUser?.uid else { return }
+                                Task { await deviceLink.unlinkCurrentDevice(for: uid) }
+                            }
+                            Button("Cancelar", role: .cancel) {}
+                        } message: {
+                            Text("La desvinculación se guarda en la cuenta aunque la placa esté desconectada. Cerrar sesión o restablecer Wi‑Fi no desvincula el dispositivo. Para usar otra cuenta, HAVIT deberá conectarse a internet y completar una nueva prueba Bluetooth.")
+                        }
                         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { showingAccount = false } } }
                     } else {
                         LoginView(session: authSession, onContinueWithoutAccount: { showingAccount = false })
                             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { showingAccount = false } } }
                     }
-                }
-                .preferredColorScheme(.dark)
+                }.preferredColorScheme(.dark)
             }
-            .sheet(isPresented: $showingFocusSetup) { FocusSetupView() }
-            .task {
-                await notifications.refresh()
-                await liveActivity.refresh()
-            }
-            .onChange(of: scenePhase) { _, phase in
-                if phase == .active {
-                    Task {
-                        await liveActivity.refresh()
-                        await notifications.refresh()
-                    }
-                }
-            }
+    }
 
+    private func restartOnboarding() {
+        if authSession.isAuthenticated && !authSession.signOut() { return }
+        onboardingCompleted = false
+        showingAccount = false
+        returnToWelcome()
+    }
+
+    private func continueAfterWiFiSetup() {
+        if authSession.isAuthenticated {
+            deviceLink.resumePendingClaim()
+            finishOnboarding()
+        } else {
+            provisioning.cancel()
+            onboardingPath.append(HavitEntryRoute.signIn)
         }
+    }
+
+    private func beginAccountFirstSetup() {
+        if authSession.isAuthenticated {
+            Task { await routeAuthenticatedAccount(forceRefresh: true) }
+            return
+        }
+        connectAfterSignIn = true
+        showingWelcome = true
+        onboardingPath.append(HavitEntryRoute.signIn)
+    }
+
+    @MainActor
+    private func routeAuthenticatedAccount(forceRefresh: Bool = false) async {
+        guard let uid = Auth.auth().currentUser?.uid, !checkingAccountDevices else { return }
+        if checkedAccountUID == uid && !forceRefresh { return }
+        checkingAccountDevices = true
+        defer { checkingAccountDevices = false }
+
+        if deviceLink.hasPendingProof {
+            deviceLink.resumePendingClaim()
+            checkedAccountUID = uid
+            connectAfterSignIn = false
+            finishOnboarding()
+            return
+        }
+
+        let hasDevice = await deviceLink.refreshAccountDevices(for: uid)
+        guard Auth.auth().currentUser?.uid == uid else { return }
+        checkedAccountUID = uid
+        showingAccount = false
+        connectAfterSignIn = false
+        let accountHasDevice = hasDevice ?? deviceLink.hasLinkedDevice(for: uid)
+        if accountHasDevice {
+            finishOnboarding()
+        } else {
+            showingWelcome = true
+            onboardingPath = NavigationPath()
+            onboardingPath.append(HavitEntryRoute.connectDevice)
+        }
+    }
+
+    private func connectDeviceFromHome() {
+        if authSession.isAuthenticated {
+            showingWelcome = true
+            onboardingPath = NavigationPath()
+            onboardingPath.append(HavitEntryRoute.connectDevice)
+        } else {
+            beginAccountFirstSetup()
+        }
+    }
+
+    private func continueWithoutAccount() {
+        connectAfterSignIn = false
+        finishOnboarding()
     }
 
     private func finishOnboarding() {
         onboardingCompleted = true
         showingWelcome = false
+        provisioning.cancel()
+        waitingForBluetoothConnection = false
         onboardingPath = NavigationPath()
     }
 
     private func returnToWelcome() {
+        provisioning.cancel()
+        bluetooth.stopScan()
+        waitingForBluetoothConnection = false
         onboardingPath = NavigationPath()
         showingWelcome = true
+    }
+
+    private func returnToDeviceConnection() {
+        provisioning.cancel()
+        waitingForBluetoothConnection = false
+        onboardingPath = NavigationPath()
+        onboardingPath.append(HavitEntryRoute.connectDevice)
+        onboardingPath.append(HavitEntryRoute.deviceFound)
     }
 
     private var accountCard: some View {

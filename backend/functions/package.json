@@ -1,0 +1,28 @@
+{
+  "name": "havit-device-api",
+  "private": true,
+  "version": "1.0.0",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test test/*.test.cjs",
+    "register-device": "node lib/register-device.js",
+    "rotate-device": "node lib/rotate-device.js",
+    "revoke-device": "node lib/revoke-device.js",
+    "recover-device-ownership": "node lib/recover-device-ownership.js"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0",
+    "google-auth-library": "^11.3.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^6.0.0"
+  }
+}

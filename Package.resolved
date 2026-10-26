@@ -1,5 +1,5 @@
 {
-  "originHash" : "781aa8e94205e6ec0527614ae8fed8e62c0f0bc8214e4f6892826f29e298c95f",
+  "originHash" : "908b7a703fc8fcba5b0d9609a3418b618efc84aad23be529d544c886c771593c",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -143,6 +143,15 @@
       "state" : {
         "revision" : "f4a19a3c313dc2616c70bb49d29a799fb16be837",
         "version" : "2.4.1"
+      }
+    },
+    {
+      "identity" : "swift-protobuf",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-protobuf.git",
+      "state" : {
+        "revision" : "3d537cb81aef272a03cb3be815439e9bf0eb3bd3",
+        "version" : "1.39.0"
       }
     }
   ],

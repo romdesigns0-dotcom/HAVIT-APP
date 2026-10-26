@@ -5,7 +5,7 @@ App nativa para iPhone, complementaria al dispositivo HAVIT con ESP32. Permite c
 ## Estado actual
 
 - Bienvenida e inicio de sesión basados en el diseño de Figma.
-- Conexión Bluetooth LE opcional; la sincronización de tareas requiere definir el protocolo del ESP32.
+- Actividades compartidas por HTTPS/Wi‑Fi con copia local por cuenta, cambios pendientes y revisión del último snapshot conservados sin conexión. Con la app en primer plano, el puente BLE puede sincronizar la placa usando Internet del iPhone cuando HAVIT no tiene Wi‑Fi. Valida la cuenta y el binding en servidor y transporta mensajes cifrados sin otro PIN. Ambos equipos sin Internet conservan sus copias/colas; el puente se reanuda al abrir la app. Contrato: [relay BLE](docs/TASK-BLE-RELAY.md).
 - Correo y contraseña, registro, recuperación de contraseña, Google y teléfono con Firebase Authentication.
 - Alternativa de enlace de acceso por correo. Con la firma gratuita de desarrollo se permite pegar el enlace recibido dentro de la app; la apertura automática desde Mail requiere configurar Universal Links y una firma compatible.
 - Temporizador de estudio, Live Activity/Dynamic Island y notificaciones locales.
@@ -20,6 +20,12 @@ App nativa para iPhone, complementaria al dispositivo HAVIT con ESP32. Permite c
 - `xtool.yml`: productos y configuración de empaquetado.
 - `Scripts`: compilación con xtool y ajuste del punto de entrada de WidgetKit.
 - `FIREBASE-AUTH.md`: configuración y limitaciones de autenticación.
+
+La guía de arquitectura y desarrollo está en [ARCHITECTURE.md](ARCHITECTURE.md).
+Describe la separación entre iOS, el firmware ESP32 y Firebase, el flujo de
+vinculación y sincronización, el restablecimiento y la compilación desde
+Windows/XTOOL con WSL. El código de la API y sus instrucciones están en
+[backend](backend/README.md).
 
 ## Icono de la app
 

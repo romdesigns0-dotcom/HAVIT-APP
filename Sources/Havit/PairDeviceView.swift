@@ -3,98 +3,93 @@ import CoreBluetooth
 
 struct PairDeviceView: View {
     @ObservedObject var bluetooth: BluetoothController
+    let onSelectDevice: (BLEDevice) -> Void
     let onContinue: () -> Void
-    @Environment(\.dismiss) private var dismiss
+
+    private let background = Color(red: 15.0 / 255, green: 15.0 / 255, blue: 15.0 / 255)
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Volver")
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    stepLabel("PASO 1 · BLUETOOTH")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 2)
 
-            ScrollView {
-                VStack(spacing: 18) {
                     Image(systemName: "dot.radiowaves.left.and.right")
-                        .font(.system(size: 42, weight: .light))
+                        .font(.system(size: 42, weight: .regular))
                         .foregroundStyle(.white)
                         .frame(width: 96, height: 96)
-                        .background(.white.opacity(0.08), in: Circle())
-                        .padding(.top, 24)
+                        .background(Color.white.opacity(0.08), in: Circle())
+                        .padding(.top, 108)
 
-                    Text("Conecta tu HAVIT")
+                    Text("Vincula tu HAVIT")
                         .font(.system(size: 30, weight: .bold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
+                        .padding(.top, 32)
 
-                    Text("Enciende el dispositivo y búscalo por Bluetooth para tener tus tareas a la vista.")
+                    Text("Enciende el dispositivo y búscalo por Bluetooth para iniciar la configuración segura.")
                         .font(.system(size: 16))
                         .foregroundStyle(.white.opacity(0.72))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 28)
+                        .padding(.top, 14)
 
-                    Button {
-                        bluetooth.scanning ? bluetooth.stopScan() : bluetooth.scan()
-                    } label: {
-                        Label(bluetooth.scanning ? "Dejar de buscar" : "Buscar dispositivos", systemImage: "magnifyingglass")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.black)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 54)
-                            .background(.white, in: Capsule())
+                    Button(action: { bluetooth.scanning ? bluetooth.stopScan() : bluetooth.scan() }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: bluetooth.scanning ? "stop.fill" : "magnifyingglass")
+                            Text(bluetooth.scanning ? "Detener búsqueda" : "Buscar HAVIT")
+                        }
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(.white, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    .padding(.top, 10)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 23)
 
                     if !bluetooth.devices.isEmpty {
                         VStack(spacing: 10) {
                             ForEach(bluetooth.devices) { device in
-                                HStack(spacing: 12) {
-                                    Image(systemName: "wave.3.right")
-                                        .foregroundStyle(.white)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(device.name).font(.subheadline.bold()).foregroundStyle(.white)
-                                        Text("\(device.rssi) dBm")
-                                            .font(.caption).foregroundStyle(.white.opacity(0.6))
+                                Button { onSelectDevice(device) } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "dot.radiowaves.left.and.right")
+                                        Text(device.name).lineLimit(1)
+                                        Spacer(minLength: 8)
+                                        Text("Elegir")
+                                            .fontWeight(.semibold)
                                     }
-                                    Spacer()
-                                    Button(device.state == .connected ? "Conectado" : "Conectar") {
-                                        bluetooth.connect(device.id)
-                                    }
-                                    .font(.subheadline.weight(.semibold))
+                                    .font(.system(size: 14))
                                     .foregroundStyle(.white)
-                                    .disabled(device.state == .connected)
+                                    .padding(.horizontal, 16)
+                                    .frame(height: 52)
+                                    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
                                 }
-                                .padding(14)
-                                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+                                .buttonStyle(.plain)
                             }
                         }
+                        .padding(.horizontal, 28)
+                        .padding(.top, 12)
                     }
 
-                    Text(bluetooth.message)
-                        .font(.footnote)
+                    Text(bluetooth.scanning ? "Buscando HAVIT cercanos por Bluetooth…" : bluetooth.message)
+                        .font(.system(size: 14))
                         .foregroundStyle(.white.opacity(0.65))
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 30)
+                        .padding(.top, 18)
+                        .padding(.bottom, 18)
                 }
-                .padding(.horizontal, 28)
-                .padding(.bottom, 24)
                 .frame(maxWidth: 440)
                 .frame(maxWidth: .infinity)
             }
 
             VStack(spacing: 14) {
                 Button(action: onContinue) {
-                    Text(bluetooth.connectedID == nil ? "Configurar después" : "Continuar")
+                    Text("Configurar después")
                         .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
@@ -102,16 +97,24 @@ struct PairDeviceView: View {
                         .background(.white, in: Capsule())
                 }
                 .buttonStyle(.plain)
-                Text("Puedes usar HAVIT aunque tu dispositivo no esté conectado.")
-                    .font(.footnote)
+
+                Text("El dispositivo se identifica como HAVIT-AB12. Manténlo encendido y cerca.")
+                    .font(.system(size: 13))
                     .foregroundStyle(.white.opacity(0.55))
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 28)
-            .padding(.top, 14)
-            .padding(.bottom, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
         }
-        .background(Color(red: 0.059, green: 0.059, blue: 0.059).ignoresSafeArea())
+        .background(background.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private func stepLabel(_ value: String) -> some View {
+        Text(value)
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(Color(red: 176.0 / 255, green: 212.0 / 255, blue: 237.0 / 255).opacity(0.7))
+            .padding(.horizontal, 24)
     }
 }

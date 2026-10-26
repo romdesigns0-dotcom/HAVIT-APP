@@ -34,13 +34,13 @@ struct LoginView: View {
 
                     Spacer().frame(height: 39)
                     VStack(spacing: 15) {
-                        providerButton(title: "Log in with Phone", asset: "phone") {
+                        providerButton(title: "Teléfono", asset: "phone") {
                             activeSheet = .phone
                         }
-                        providerButton(title: "Log in with Google", asset: "google-logo") {
+                        providerButton(title: "Google", asset: "google-logo") {
                             session.signInWithGoogle()
                         }
-                        providerButton(title: "Log in with Mail / Username", asset: "mail") {
+                        providerButton(title: "Correo electrónico", asset: "mail") {
                             activeSheet = .email
                         }
                     }

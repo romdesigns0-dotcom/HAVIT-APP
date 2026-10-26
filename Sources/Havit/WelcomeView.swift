@@ -9,7 +9,7 @@ struct WelcomeView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     Spacer(minLength: 24)
-                    HavitMark()
+                    HavitMark(onTap: onLogin)
                     Spacer().frame(height: 81)
 
                     Text("Bienvenido a Havit")
@@ -65,15 +65,89 @@ struct WelcomeView: View {
 }
 
 struct HavitMark: View {
+    var onTap: (() -> Void)? = nil
+
+    @State private var eyeHeight: CGFloat = 4
+    @State private var eyeOpacity = 1.0
+    @State private var animationTask: Task<Void, Never>?
+    @State private var isActivating = false
+
+    private let eyeWidth: CGFloat = 36.623
+    private let eyeGap: CGFloat = 62.377
+    private let closedHeight: CGFloat = 4
+    private let restingHeight: CGFloat = 98
+    private let openHeight: CGFloat = 109.868
+
     var body: some View {
-        HStack(spacing: 62.377) {
-            Capsule().fill(.white).frame(width: 36.623, height: 109.868)
-                .shadow(color: .white.opacity(0.25), radius: 10.65, x: 0, y: 2)
-            Capsule().fill(.white).frame(width: 36.623, height: 109.868)
-                .shadow(color: .white.opacity(0.25), radius: 10.65, x: 0, y: 2)
+        HStack(alignment: .bottom, spacing: eyeGap) {
+            eye
+            eye
         }
+        .frame(width: eyeWidth * 2 + eyeGap, height: 109.868, alignment: .bottom)
+        .contentShape(Rectangle())
+        .opacity(eyeOpacity)
+        .onTapGesture { activate() }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("HAVIT")
+        .accessibilityHint(onTap == nil ? "" : "Toca para continuar al acceso")
+        .accessibilityAction { activate() }
+        .onAppear { startAnimation() }
+        .onDisappear { animationTask?.cancel() }
+    }
+
+    private var eye: some View {
+        Capsule()
+            .fill(.white)
+            .frame(width: eyeWidth, height: eyeHeight)
+            .shadow(color: .white.opacity(0.25), radius: 10.65, x: 0, y: 2)
+    }
+
+    @MainActor
+    private func startAnimation() {
+        animationTask?.cancel()
+        animationTask = Task { @MainActor in
+            withAnimation(.easeInOut(duration: 0.46)) { eyeHeight = restingHeight }
+            guard await pause(milliseconds: 460) else { return }
+
+            withAnimation(.easeInOut(duration: 0.18)) { eyeHeight = openHeight }
+            guard await pause(milliseconds: 180) else { return }
+
+            while !Task.isCancelled {
+                guard await pause(milliseconds: 3_400) else { return }
+                withAnimation(.easeInOut(duration: 0.12)) { eyeHeight = closedHeight }
+                guard await pause(milliseconds: 120) else { return }
+                withAnimation(.easeInOut(duration: 0.16)) { eyeHeight = openHeight }
+                guard await pause(milliseconds: 160) else { return }
+            }
+        }
+    }
+
+    @MainActor
+    private func activate() {
+        guard let onTap, !isActivating else { return }
+        isActivating = true
+        animationTask?.cancel()
+        animationTask = Task { @MainActor in
+            withAnimation(.easeInOut(duration: 0.12)) { eyeHeight = closedHeight }
+            guard await pause(milliseconds: 120) else { return }
+
+            withAnimation(.easeInOut(duration: 0.16)) { eyeHeight = openHeight }
+            guard await pause(milliseconds: 160) else { return }
+
+            withAnimation(.easeInOut(duration: 0.3)) { eyeOpacity = 0 }
+            guard await pause(milliseconds: 300) else { return }
+            onTap()
+        }
+    }
+
+    @MainActor
+    private func pause(milliseconds: Int) async -> Bool {
+        do {
+            try await Task.sleep(for: .milliseconds(milliseconds))
+            return !Task.isCancelled
+        } catch {
+            return false
+        }
     }
 }
 

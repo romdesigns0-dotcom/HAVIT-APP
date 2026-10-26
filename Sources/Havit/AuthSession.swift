@@ -93,7 +93,7 @@ final class HavitAuthSession: ObservableObject {
                 } else {
                     UserDefaults.standard.set(address, forKey: "havit.auth.emailForLink")
                     self.emailLinkWasSent = true
-                    self.statusMessage = "Enviamos un enlace de uso único a tu correo. En esta versión de desarrollo, cópialo del mensaje y pégalo aquí para continuar."
+                    self.statusMessage = "Te enviamos un enlace de acceso a tu correo. Pega aquí el enlace del mensaje para continuar."
                 }
             }
         }
